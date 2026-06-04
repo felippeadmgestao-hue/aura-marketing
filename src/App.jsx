@@ -41,7 +41,7 @@ const PILLARS = [
 async function callClaude(messages) {
   const r = await fetch("/api/claude", {
     method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-opus-4-5", max_tokens:1000, messages})
+    body:JSON.stringify({model:"claude-sonnet-4-20250514", max_tokens:1000, messages})
   });
   const d = await r.json();
   return d.content?.map(c=>c.text||"").join("") || "";
@@ -402,15 +402,14 @@ function AnaliseImagem() {
     const prompt=`Especialista em marketing visual para arquitetura premium. Analise esta imagem para o Instagram do "Aura Studio Arquitetura". Contexto: ${context||"Não informado"}. Retorne SOMENTE JSON: {"nota_estetica":<0-100>,"nota_marca":<0-100>,"nota_engajamento":<0-100>,"nota_geral":<0-100>,"pontos_fortes":["p1","p2","p3"],"pontos_melhoria":["m1","m2","m3"],"tipo_post_ideal":"Inspiração|Educação|Desejo","dia_ideal":"Segunda|Quarta|Sexta","legenda_sugerida":"legenda completa","hashtags":"#tag1 #tag2 #tag3 #tag4 #tag5","aprovado":true,"veredicto":"frase curta"}`;
     try{
       const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-opus-4-5",max_tokens:1000,
+        body:JSON.stringify({model:"claude-opus-4-5",max_tokens:2000,
           messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:"image/jpeg",data:b64}},{type:"text",text:prompt}]}]})});
       const d=await r.json();
       const text=d.content?.map(c=>c.text||"").join("")||"";
-      const parsed=JSON.parse(text.replace(/```json|```/g,"").trim());
-      const analyses=store.get("analyses",[]);
-      store.set("analyses",[{...parsed,date:new Date().toISOString()},...analyses].slice(0,20));
+      const start=text.indexOf("{");const end=text.lastIndexOf("}");
+      const parsed=JSON.parse(text.substring(start,end+1));
       setResult(parsed);
-    }catch(e){setResult({error:"Erro na análise."});}
+    }catch(e){setResult({error:"Erro: "+e.message});}
     setLoading(false);
   };
   return(
@@ -562,7 +561,7 @@ function Relatorio() {
       let text;
       if(fromPrint){
         const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({model:"claude-opus-4-5",max_tokens:1000,
+          body:JSON.stringify({model:"claude-opus-4-5",max_tokens:2000,
             messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:"image/jpeg",data:b64}},{type:"text",text:prompt}]}]})});
         const d=await r.json();
         text=d.content?.map(c=>c.text||"").join("")||"";
