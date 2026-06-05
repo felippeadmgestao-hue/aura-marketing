@@ -547,36 +547,30 @@ function Relatorio() {
   const [reports,setReports]=useState(()=>store.get("reports",[]));
   const [selected,setSelected]=useState(null);
   const [form,setForm]=useState({semana:"",seguidores:"",novos:"",alcance:"",curtidas:"",comentarios:"",salvamentos:"",posts_semana:"",melhor_post:"",notas:""});
-  const [image,setImage]=useState(null);
-  const [b64,setB64]=useState(null);
   const [result,setResult]=useState(null);
   const [loading,setLoading]=useState(false);
   const fileRef=useRef();
+
   const saveReport=(r)=>{const n=[r,...reports].slice(0,20);setReports(n);store.set("reports",n);};
   const deleteReport=(id)=>{const u=reports.filter(r=>r.id!==id);setReports(u);store.set("reports",u);};
-  const generate=async(fromPrint=false)=>{
+
+  const generate=async()=>{
     setLoading(true);setResult(null);
-    const prompt=fromPrint
-      ?`Analise este print do Instagram Insights do Aura Studio Arquitetura. Retorne SOMENTE JSON: {"resumo_executivo":"...","taxa_engajamento":"X%","nota_semana":<0-100>,"destaques":["d1","d2","d3"],"alertas":[],"top_metricas":[{"label":"","valor":"","tendencia":"up|down|stable"}],"acoes_proxima_semana":["a1","a2","a3","a4"],"sugestao_conteudo":["Segunda:...","Quarta:...","Sexta:..."],"insight_principal":"..."}`
-      :`Analise dados do Aura Studio: ${JSON.stringify(form)}. Retorne SOMENTE JSON: {"resumo_executivo":"...","taxa_engajamento":"X%","nota_semana":<0-100>,"destaques":["d1","d2","d3"],"alertas":[],"top_metricas":[{"label":"","valor":"","tendencia":"up|down|stable"}],"acoes_proxima_semana":["a1","a2","a3","a4"],"sugestao_conteudo":["Segunda:...","Quarta:...","Sexta:..."],"insight_principal":"..."}`;
+    const prompt=`Analise dados do Instagram do Aura Studio Arquitetura e crie relatório semanal. Dados: ${JSON.stringify(form)}. Retorne SOMENTE JSON válido sem markdown: {"resumo_executivo":"texto aqui","taxa_engajamento":"X.XX%","nota_semana":75,"destaques":["d1","d2","d3"],"alertas":[],"top_metricas":[{"label":"Alcance","valor":"0","tendencia":"stable"}],"acoes_proxima_semana":["a1","a2","a3"],"sugestao_conteudo":["Segunda: tema","Quarta: tema","Sexta: tema"],"insight_principal":"texto"}`;
     try{
-      let text;
-      if(fromPrint){
-        const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({model:"claude-opus-4-5",max_tokens:2000,
-            messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:(b64.startsWith("/9j/") ? "image/jpeg" : "image/png"),data:b64}},{type:"text",text:prompt}]}]})});
-        const d=await r.json();
-        text=d.content?.map(c=>c.text||"").join("")||"";
-      }else{
-        text=await callClaude([{role:"user",content:prompt}]);
-      }
-      const start2=text.indexOf("{");const end2=text.lastIndexOf("}");const parsed=JSON.parse(text.substring(start2,end2+1));
+      const text=await callClaude([{role:"user",content:prompt}]);
+      const s=text.indexOf("{");const e=text.lastIndexOf("}");
+      const parsed=JSON.parse(text.substring(s,e+1));
       const full={...parsed,id:Date.now(),date:new Date().toISOString(),semana:form.semana||new Date().toLocaleDateString("pt-BR")};
       saveReport(full);setResult(full);
-    }catch(e){setResult({error:"Erro."});}
+    }catch(e){setResult({error:"Erro: "+e.message});}
     setLoading(false);
   };
 
+  const tColor=(t)=>t==="up"?"#4A7C59":t==="down"?"#8B3A3A":"#9A8C7E";
+  const tIcon=(t)=>t==="up"?"↑":t==="down"?"↓":"→";
+
+  // LIST VIEW
   if(view==="list") return(
     <div style={{padding:"20px 16px",paddingBottom:90}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
@@ -586,20 +580,19 @@ function Relatorio() {
       {reports.length===0
         ?<Card style={{textAlign:"center",padding:40}}>
           <div style={{fontSize:32,marginBottom:8}}>✦</div>
-          <div style={{fontSize:14,color:"#9A8C7E"}}>Nenhum relatório ainda.</div>
+          <div style={{fontSize:14,color:"#9A8C7E"}}>Nenhum relatório ainda.<br/>Crie o primeiro!</div>
         </Card>
         :reports.map(r=>(
           <Card key={r.id} style={{marginBottom:10,padding:14,cursor:"pointer"}} onClick={()=>{setSelected(r);setView("detail");}}>
             <div style={{display:"flex",alignItems:"center",gap:12}}>
               <ScoreRing score={r.nota_semana||0} size={52}/>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:600,color:"#2C1F14",marginBottom:2}}>Semana: {r.semana||fmtDate(r.date)}</div>
-                <div style={{fontSize:11,color:"#9A8C7E",marginBottom:4}}>{fmtDate(r.date)}</div>
+                <div style={{fontSize:13,fontWeight:600,color:"#2C1F14",marginBottom:2}}>Semana: {r.semana}</div>
                 <div style={{fontSize:12,color:"#8B7355",fontStyle:"italic",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>"{r.insight_principal}"</div>
               </div>
-              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"center"}}>
                 <button onClick={e=>{e.stopPropagation();deleteReport(r.id);}} style={{background:"rgba(139,58,58,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#8B3A3A"}}>✕</button>
-                <div style={{color:"#9A8C7E",fontSize:18,textAlign:"center"}}>›</div>
+                <span style={{color:"#9A8C7E",fontSize:18}}>›</span>
               </div>
             </div>
           </Card>
@@ -608,36 +601,84 @@ function Relatorio() {
     </div>
   );
 
+  // DETAIL VIEW
   if(view==="detail"&&selected) return(
     <div style={{padding:"20px 16px",paddingBottom:90}}>
-      <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#8B7355",cursor:"pointer",fontSize:16,marginBottom:12,display:"flex",alignItems:"center",gap:6}}>‹ Voltar</button>
-      <ReportView r={selected}/>
+      <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#8B7355",cursor:"pointer",fontSize:15,marginBottom:14,display:"flex",alignItems:"center",gap:6}}>‹ Voltar</button>
+      <Card style={{background:"#2C1F14",marginBottom:12}}>
+        <Label style={{color:"#C8A96E"}}>Relatório · Aura Studio</Label>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,color:"#F5F0E8",margin:"8px 0",lineHeight:1.5,fontStyle:"italic"}}>"{selected.insight_principal}"</div>
+        <div style={{display:"flex",gap:24,marginTop:12}}>
+          <div><div style={{fontSize:10,color:"rgba(200,169,110,0.8)",letterSpacing:"0.15em"}}>NOTA</div>
+            <div style={{fontSize:28,fontWeight:700,color:"#C8A96E"}}>{selected.nota_semana}<span style={{fontSize:14}}>/100</span></div></div>
+          <div><div style={{fontSize:10,color:"rgba(200,169,110,0.8)",letterSpacing:"0.15em"}}>ENGAJAMENTO</div>
+            <div style={{fontSize:28,fontWeight:700,color:"#F5F0E8"}}>{selected.taxa_engajamento}</div></div>
+        </div>
+      </Card>
+      <Card style={{marginBottom:12}}>
+        <Label style={{marginBottom:8}}>Resumo Executivo</Label>
+        <div style={{fontSize:13,color:"#2C1F14",lineHeight:1.7}}>{selected.resumo_executivo}</div>
+      </Card>
+      {selected.top_metricas?.length>0&&<Card style={{marginBottom:12}}>
+        <Label style={{marginBottom:12}}>Métricas</Label>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+          {selected.top_metricas.map((m,i)=>(
+            <div key={i} style={{background:"#F5F0E8",borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
+              <div style={{fontSize:10,color:"#9A8C7E",marginBottom:4}}>{m.label}</div>
+              <div style={{fontSize:16,fontWeight:700,color:"#2C1F14"}}>{m.valor}</div>
+              <div style={{fontSize:14,color:tColor(m.tendencia),fontWeight:700}}>{tIcon(m.tendencia)}</div>
+            </div>
+          ))}
+        </div>
+      </Card>}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+        <Card style={{padding:14}}>
+          <Label style={{color:"#4A7C59",marginBottom:8}}>✓ Destaques</Label>
+          {selected.destaques?.map((d,i)=><div key={i} style={{fontSize:12,color:"#2C1F14",marginBottom:6,lineHeight:1.5,paddingLeft:8,borderLeft:"2px solid #4A7C59"}}>{d}</div>)}
+        </Card>
+        {selected.alertas?.length>0&&<Card style={{padding:14}}>
+          <Label style={{color:"#C8853E",marginBottom:8}}>⚠ Alertas</Label>
+          {selected.alertas.map((a,i)=><div key={i} style={{fontSize:12,color:"#2C1F14",marginBottom:6,lineHeight:1.5,paddingLeft:8,borderLeft:"2px solid #C8853E"}}>{a}</div>)}
+        </Card>}
+      </div>
+      <Card style={{marginBottom:12}}>
+        <Label style={{marginBottom:10}}>Plano Próxima Semana</Label>
+        {selected.acoes_proxima_semana?.map((a,i)=>(
+          <div key={i} style={{display:"flex",gap:10,marginBottom:8,fontSize:13,color:"#2C1F14"}}>
+            <span style={{color:"#C8A96E",fontWeight:700,flexShrink:0}}>{String(i+1).padStart(2,"0")}</span>{a}
+          </div>
+        ))}
+      </Card>
+      <Card>
+        <Label style={{marginBottom:10}}>Sugestão de Conteúdo</Label>
+        {selected.sugestao_conteudo?.map((s,i)=>(
+          <div key={i} style={{background:`${["#C8A96E","#8B7355","#2C1F14"][i]||"#9A8C7E"}12`,borderRadius:10,padding:"10px 12px",marginBottom:8,fontSize:13,color:"#2C1F14"}}>{s}</div>
+        ))}
+      </Card>
     </div>
   );
 
+  // NEW VIEW
   return(
     <div style={{padding:"20px 16px",paddingBottom:90}}>
-      <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#8B7355",cursor:"pointer",fontSize:16,marginBottom:12,display:"flex",alignItems:"center",gap:6}}>‹ Relatórios</button>
+      <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#8B7355",cursor:"pointer",fontSize:15,marginBottom:14,display:"flex",alignItems:"center",gap:6}}>‹ Relatórios</button>
       <H style={{marginBottom:16}}>Novo Relatório</H>
+
       {!mode&&!result&&(
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {[{id:"manual",icon:"✎",title:"Inserir manualmente",desc:"Digite os números do Insights"},
-            {id:"print",icon:"◉",title:"Enviar print do Insights",desc:"A IA lê automaticamente"}
-          ].map(opt=>(
-            <Card key={opt.id} style={{cursor:"pointer"}} onClick={()=>setMode(opt.id)}>
-              <div style={{display:"flex",alignItems:"center",gap:14}}>
-                <div style={{width:48,height:48,borderRadius:14,background:"rgba(200,169,110,0.18)",
-                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,color:"#C8A96E",flexShrink:0}}>{opt.icon}</div>
-                <div>
-                  <div style={{fontSize:14,fontWeight:600,color:"#2C1F14",marginBottom:2}}>{opt.title}</div>
-                  <div style={{fontSize:12,color:"#9A8C7E"}}>{opt.desc}</div>
-                </div>
-                <div style={{marginLeft:"auto",color:"#9A8C7E",fontSize:18}}>›</div>
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <Card style={{cursor:"pointer",border:"2px solid transparent"}} onClick={()=>setMode("manual")}>
+            <div style={{display:"flex",alignItems:"center",gap:14}}>
+              <div style={{width:48,height:48,borderRadius:14,background:"rgba(200,169,110,0.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,color:"#C8A96E",flexShrink:0}}>✎</div>
+              <div>
+                <div style={{fontSize:15,fontWeight:600,color:"#2C1F14",marginBottom:3}}>Inserir manualmente</div>
+                <div style={{fontSize:12,color:"#9A8C7E"}}>Digite os números do Instagram Insights</div>
               </div>
-            </Card>
-          ))}
+              <div style={{marginLeft:"auto",color:"#9A8C7E",fontSize:22}}>›</div>
+            </div>
+          </Card>
         </div>
       )}
+
       {mode==="manual"&&!result&&(
         <Card>
           <Label style={{marginBottom:12}}>Dados da Semana</Label>
@@ -651,29 +692,47 @@ function Relatorio() {
           ))}
           <Label>Observações</Label>
           <Textarea value={form.notas} onChange={v=>setForm(p=>({...p,notas:v}))} rows={2} placeholder="Campanhas, Reels virais..."/>
-          <Btn onClick={()=>generate(false)} disabled={loading||!form.seguidores} style={{width:"100%",justifyContent:"center"}}>
+          <Btn onClick={generate} disabled={loading||!form.seguidores} style={{width:"100%",justifyContent:"center"}}>
             {loading?<><Spinner/>Gerando...</>:"✦ Gerar Relatório com IA"}
           </Btn>
         </Card>
       )}
-      {mode==="print"&&!result&&(
-        <Card>
-          <div onClick={()=>fileRef.current?.click()} style={{border:`2px dashed ${image?"#C8A96E":"#E8E0D0"}`,borderRadius:12,
-            padding:"24px 16px",textAlign:"center",cursor:"pointer",background:image?"rgba(200,169,110,0.08)":"#F5F0E8",marginBottom:12}}>
-            {image?<img src={image} alt="insights" style={{maxWidth:"100%",maxHeight:250,borderRadius:8,objectFit:"contain"}}/>
-              :<><div style={{fontSize:32,marginBottom:8}}>◉</div><div style={{fontSize:13,color:"#8B7355",fontWeight:600}}>Print do Instagram Insights</div></>}
-          </div>
-          <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}}
-            onChange={async e=>{const file=e.target.files[0];if(!file)return;setImage(URL.createObjectURL(file));setB64(await fileToB64(file));}}/>
-          {image&&<Btn onClick={()=>generate(true)} disabled={loading} style={{width:"100%",justifyContent:"center"}}>
-            {loading?<><Spinner/>Analisando...</>:"✦ Gerar Relatório com IA"}
-          </Btn>}
-        </Card>
+
+      {result&&!result.error&&(
+        <>
+          <Card style={{background:"#2C1F14",marginBottom:12}}>
+            <Label style={{color:"#C8A96E"}}>Relatório Gerado ✓</Label>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,color:"#F5F0E8",margin:"8px 0",lineHeight:1.5,fontStyle:"italic"}}>"{result.insight_principal}"</div>
+            <div style={{display:"flex",gap:24,marginTop:12}}>
+              <div><div style={{fontSize:10,color:"rgba(200,169,110,0.8)",letterSpacing:"0.15em"}}>NOTA</div>
+                <div style={{fontSize:28,fontWeight:700,color:"#C8A96E"}}>{result.nota_semana}<span style={{fontSize:14}}>/100</span></div></div>
+              <div><div style={{fontSize:10,color:"rgba(200,169,110,0.8)",letterSpacing:"0.15em"}}>ENGAJAMENTO</div>
+                <div style={{fontSize:28,fontWeight:700,color:"#F5F0E8"}}>{result.taxa_engajamento}</div></div>
+            </div>
+          </Card>
+          <Card style={{marginBottom:12}}>
+            <Label style={{marginBottom:8}}>Resumo</Label>
+            <div style={{fontSize:13,color:"#2C1F14",lineHeight:1.7}}>{result.resumo_executivo}</div>
+          </Card>
+          <Card style={{marginBottom:12}}>
+            <Label style={{marginBottom:10}}>Plano Próxima Semana</Label>
+            {result.acoes_proxima_semana?.map((a,i)=>(
+              <div key={i} style={{display:"flex",gap:10,marginBottom:8,fontSize:13,color:"#2C1F14"}}>
+                <span style={{color:"#C8A96E",fontWeight:700,flexShrink:0}}>{String(i+1).padStart(2,"0")}</span>{a}
+              </div>
+            ))}
+          </Card>
+          <Card style={{marginBottom:12}}>
+            <Label style={{marginBottom:10}}>Sugestão de Conteúdo</Label>
+            {result.sugestao_conteudo?.map((s,i)=>(
+              <div key={i} style={{background:`${["#C8A96E","#8B7355","#2C1F14"][i]||"#9A8C7E"}12`,borderRadius:10,padding:"10px 12px",marginBottom:8,fontSize:13,color:"#2C1F14"}}>{s}</div>
+            ))}
+          </Card>
+          <Btn onClick={()=>{setView("list");setMode(null);setResult(null);}} variant="outline" style={{width:"100%",justifyContent:"center"}}>
+            ← Ver todos os relatórios
+          </Btn>
+        </>
       )}
-      {result&&!result.error&&<>
-        <ReportView r={result}/>
-        <Btn onClick={()=>{setView("list");setMode(null);setResult(null);}} variant="outline" style={{marginTop:16,width:"100%",justifyContent:"center"}}>← Ver relatórios</Btn>
-      </>}
       {result?.error&&<Card style={{background:"rgba(139,58,58,0.15)"}}><div style={{fontSize:13,color:"#8B3A3A"}}>{result.error}</div></Card>}
     </div>
   );
