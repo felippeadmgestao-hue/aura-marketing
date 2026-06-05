@@ -41,7 +41,7 @@ const PILLARS = [
 async function callClaude(messages) {
   const r = await fetch("/api/claude", {
     method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-sonnet-4-20250514", max_tokens:1000, messages})
+    body:JSON.stringify({model:"claude-opus-4-5", max_tokens:1000, messages})
   });
   const d = await r.json();
   return d.content?.map(c=>c.text||"").join("") || "";
@@ -570,7 +570,7 @@ function Relatorio() {
       }else{
         text=await callClaude([{role:"user",content:prompt}]);
       }
-      const parsed=JSON.parse(text.replace(/```json|```/g,"").trim());
+      const start2=text.indexOf("{");const end2=text.lastIndexOf("}");const parsed=JSON.parse(text.substring(start2,end2+1));
       const full={...parsed,id:Date.now(),date:new Date().toISOString(),semana:form.semana||new Date().toLocaleDateString("pt-BR")};
       saveReport(full);setResult(full);
     }catch(e){setResult({error:"Erro."});}
@@ -780,4 +780,3 @@ export default function App() {
     </div>
   );
 }
-
