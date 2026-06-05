@@ -403,7 +403,7 @@ function AnaliseImagem() {
     try{
       const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({model:"claude-opus-4-5",max_tokens:2000,
-          messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:"image/jpeg",data:b64}},{type:"text",text:prompt}]}]})});
+          messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:(b64.startsWith("/9j/") ? "image/jpeg" : "image/png"),data:b64}},{type:"text",text:prompt}]}]})});
       const d=await r.json();
       const text=d.content?.map(c=>c.text||"").join("")||"";
       const start=text.indexOf("{");const end=text.lastIndexOf("}");
@@ -564,7 +564,7 @@ function Relatorio() {
       if(fromPrint){
         const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},
           body:JSON.stringify({model:"claude-opus-4-5",max_tokens:2000,
-            messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:"image/jpeg",data:b64}},{type:"text",text:prompt}]}]})});
+            messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:(b64.startsWith("/9j/") ? "image/jpeg" : "image/png"),data:b64}},{type:"text",text:prompt}]}]})});
         const d=await r.json();
         text=d.content?.map(c=>c.text||"").join("")||"";
       }else{
@@ -780,3 +780,4 @@ export default function App() {
     </div>
   );
 }
+
