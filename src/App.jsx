@@ -53,9 +53,9 @@ function toB64(file) {
 }
 
 // ─── ATOMS ───────────────────────────────────────────────────────────────────
-const Card=({c,s={}})=><div style={{background:T.card,borderRadius:16,padding:20,boxShadow:"0 2px 12px rgba(44,31,20,0.07)",animation:"fadeUp 0.3s ease both",...s}}>{c}</div>;
-const Lbl=({c,s={}})=><div style={{fontSize:10,letterSpacing:"0.25em",textTransform:"uppercase",color:T.muted,fontWeight:600,marginBottom:6,...s}}>{c}</div>;
-const H1=({c,s={}})=><div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:500,color:T.text,lineHeight:1.3,...s}}>{c}</div>;
+const Card=({children,c,s={}})=><div style={{background:T.card,borderRadius:16,padding:20,boxShadow:"0 2px 12px rgba(44,31,20,0.07)",animation:"fadeUp 0.3s ease both",...s}}>{children||c}</div>;
+const Lbl=({children,c,s={}})=><div style={{fontSize:10,letterSpacing:"0.25em",textTransform:"uppercase",color:T.muted,fontWeight:600,marginBottom:6,...s}}>{children||c}</div>;
+const H1=({children,c,s={}})=><div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:500,color:T.text,lineHeight:1.3,...s}}>{children||c}</div>;
 const Spinner=()=><div style={{width:16,height:16,border:"2px solid #E8E0D0",borderTop:"2px solid #8B7355",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>;
 
 function Btn({ch,onClick,disabled,s={},v="primary"}) {
